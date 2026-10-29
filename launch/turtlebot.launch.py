@@ -12,7 +12,6 @@ from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import Node
 
 
-
 def generate_launch_description():
     soc_nav = FindPackageShare('social_nav')
     tb4_gz = FindPackageShare('turtlebot4_gz_bringup')
@@ -105,6 +104,14 @@ def generate_launch_description():
         scoped=True
     )
 
+    cmd_vel_relay = Node(
+        package='topic_tools',
+        executable='relay',
+        name='cmd_vel_relay',
+        arguments=['/cmd_vel_nav', '/diffdrive_controller/cmd_vel'],
+        output='screen'
+    )
+
     nav2_stack = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([nav2_bringup, 'launch', 'bringup_launch.py'])
@@ -144,6 +151,7 @@ def generate_launch_description():
         gz_sim,
         clock_bridge,
         tb4_spawn,
+        cmd_vel_relay,
         nav2_stack,
         rviz
     ])
