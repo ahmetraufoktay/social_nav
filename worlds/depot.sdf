@@ -12,15 +12,101 @@
     <plugin name="gz::sim::systems::UserCommands" filename="gz-sim-user-commands-system" />
     <plugin name="gz::sim::systems::SceneBroadcaster" filename="gz-sim-scene-broadcaster-system" />
     <plugin name="gz::sim::systems::Contact" filename="gz-sim-contact-system" />
-    <!--<plugin name="gz::sim::systems::Sensors" filename="gz-sim-sensors-system">
-        <render_engine>ogre2</render_engine>
-    </plugin>-->
+    <!--     <plugin name="gz::sim::systems::Sensors" filename="gz-sim-sensors-system">
+      <render_engine>ogre2</render_engine>
+    </plugin> -->
 
     <include>
-      <uri>
-        https://fuel.gazebosim.org/1.0/OpenRobotics/models/Depot
-      </uri>
+      <uri>model://Depot</uri>
     </include>
 
+    <actor name="pedestrian_corridor_1">
+      <skin>
+        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/walk.dae</filename>
+        <scale>1.0</scale>
+      </skin>
+      <animation name="walk">
+        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/walk.dae</filename>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <loop>true</loop>
+        <auto_start>true</auto_start>
+        <trajectory id="0" type="walk">
+          <waypoint>
+            <time>0.0</time>
+            <pose>-7.50 2.82 1.0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>1.0</time>
+            <pose>-7.50 2.82 1.0 0 0 -0.78</pose>
+          </waypoint>
+          <waypoint>
+            <time>3.0</time>
+            <pose>-6.39 1.06 1.0 0 0 -0.78</pose>
+          </waypoint>
+          <waypoint>
+            <time>4.0</time>
+            <pose>-6.39 1.06 1.0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>6.0</time>
+            <pose>-8.29 1.20 1.0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>7.0</time>
+            <pose>-8.29 1.20 1.0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>9.0</time>
+            <pose>-7.50 2.82 1.0 0 0 1.57</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
+    <actor name="pedestrian_corridor_2">
+      <skin>
+        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/walk.dae</filename>
+        <scale>1.0</scale>
+      </skin>
+      <animation name="walk">
+        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/walk.dae</filename>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <loop>true</loop>
+        <auto_start>true</auto_start>
+        <trajectory id="0" type="walk">
+          <waypoint>
+            <time>0.0</time>
+            <pose>-7.45 -0.14 1.0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>1.0</time>
+            <pose>-7.45 -0.14 1.0 0 0 -0.78</pose>
+          </waypoint>
+          <waypoint>
+            <time>4.0</time>
+            <pose>-6.64 -2.45 1.0 0 0 -0.78</pose>
+          </waypoint>
+          <waypoint>
+            <time>5.0</time>
+            <pose>-6.64 -2.45 1.0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>8.0</time>
+            <pose>-8.43 -2.61 1.0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>9.0</time>
+            <pose>-8.43 -2.61 1.0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>12.0</time>
+            <pose>-7.45 -0.14 1.0 0 0 1.57</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
   </world>
 </sdf>
