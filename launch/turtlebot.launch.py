@@ -18,50 +18,91 @@ def generate_launch_description():
     ros_gz_sim = FindPackageShare('ros_gz_sim')
     nav2_bringup = FindPackageShare('nav2_bringup')
 
-    gz_resource_path_worlds = AppendEnvironmentVariable(
-        name='GZ_SIM_RESOURCE_PATH',
-        value=PathJoinSubstitution([soc_nav, 'worlds'])
+    ARGS = [
+        DeclareLaunchArgument(
+            name='world',
+            default_value='depot',
+            description='Gazebo world name'
+        ),
+
+        DeclareLaunchArgument(
+            name='map',
+            default_value=PathJoinSubstitution([soc_nav, 'maps', 'depot_map.yaml']),
+            description='Map YAML file path'
+        ),
+
+        DeclareLaunchArgument(
+            name='params_file',
+            default_value=PathJoinSubstitution([soc_nav, 'config', 'nav2_params.yaml']),
+            description='Nav2 parameters file'
+        ),
+
+        DeclareLaunchArgument(
+            name='nav2',
+            default_value='true',
+            description='Whether to run Nav2'
+        ),
+
+        DeclareLaunchArgument(
+            name='slam',
+            default_value='false',
+            description='Whether to start SLAM'
+        ),
+
+        DeclareLaunchArgument(
+            name='localization',
+            default_value='false',
+            description='Whether to start Localization'
+        ),
+
+        DeclareLaunchArgument(
+            name='rviz',
+            default_value='true',
+            description='Whether to start RViz'
+        ),
+
+        DeclareLaunchArgument(
+            name='use_sim_time',
+            default_value='true',
+            description='Use simulation (Gazebo) clock if true'
+        )
+    ]
+
+    ENV_VARIABLES = [
+        AppendEnvironmentVariable(
+            name='GZ_SIM_RESOURCE_PATH',
+            value=PathJoinSubstitution([soc_nav, 'worlds'])
+        ),
+
+        AppendEnvironmentVariable(
+            name='GZ_SIM_RESOURCE_PATH',
+            value=PathJoinSubstitution([soc_nav, 'models'])
+        )
+    ]
+
+    clock_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='clock_bridge',
+        output='screen',
+        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock']
     )
 
-    gz_resource_path_models = AppendEnvironmentVariable(
-        name='GZ_SIM_RESOURCE_PATH',
-        value=PathJoinSubstitution([soc_nav, 'models'])
+    cmd_vel_relay = Node(
+        package='topic_tools',
+        executable='relay',
+        name='cmd_vel_relay',
+        arguments=['/cmd_vel_nav', '/diffdrive_controller/cmd_vel'],
+        output='screen'
     )
 
-    use_sim_time_arg = DeclareLaunchArgument(
-        name='use_sim_time',
-        default_value='true',
-        description='Use simulation (Gazebo) clock if true'
-    )
-
-    world_arg = DeclareLaunchArgument(
-        name='world',
-        default_value='depot',
-        description='Gazebo world name'
-    )
-
-    map_arg = DeclareLaunchArgument(
-        name='map',
-        default_value=PathJoinSubstitution([soc_nav, 'maps', 'depot_map.yaml']),
-        description='Map YAML file path'
-    )
-
-    params_file_arg = DeclareLaunchArgument(
-        name='params_file',
-        default_value=PathJoinSubstitution([soc_nav, 'config', 'nav2_params.yaml']),
-        description='Nav2 parameters file'
-    )
-
-    nav2_arg = DeclareLaunchArgument(
-        name='nav2',
-        default_value='true',
-        description='Whether to run Nav2'
-    )
-
-    rviz_arg = DeclareLaunchArgument(
-        name='rviz',
-        default_value='true',
-        description='Whether to start RViz'
+    rviz = Node(
+        package='rviz2',
+        executable='rviz2',
+        arguments=['-d', PathJoinSubstitution([nav2_bringup, 'rviz', 'nav2_default_view.rviz'])],
+        parameters=[{'use_sim_time': True}],
+        condition=IfCondition(LaunchConfiguration('rviz')),
+        output='screen',
     )
 
     gz_sim = IncludeLaunchDescription(
@@ -73,13 +114,6 @@ def generate_launch_description():
         }.items()
     )
 
-    clock_bridge = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        name='clock_bridge',
-        output='screen',
-        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock']
-    )
 
     tb4_spawn = GroupAction(
         actions=[
@@ -88,7 +122,6 @@ def generate_launch_description():
                     PathJoinSubstitution([tb4_gz, 'launch', 'turtlebot4_spawn.launch.py'])
                 ),
                 launch_arguments={
-                    'world': LaunchConfiguration('world'),
                     'use_sim_time': LaunchConfiguration('use_sim_time'), # Not: use_sim_time_arg yerine use_sim_time olmalı
                     'model': 'standard',
                     'x': '0.0',
@@ -96,20 +129,13 @@ def generate_launch_description():
                     'z': '0.1',
                     'yaw': '0.0',
                     'nav2': 'false',
-                    'slam': 'false',
+                    'localization': LaunchConfiguration('localization'),
+                    'slam': LaunchConfiguration('slam'),
                     'rviz': 'false',
                 }.items()
             )
         ],
         scoped=True
-    )
-
-    cmd_vel_relay = Node(
-        package='topic_tools',
-        executable='relay',
-        name='cmd_vel_relay',
-        arguments=['/cmd_vel_nav', '/diffdrive_controller/cmd_vel'],
-        output='screen'
     )
 
     nav2_stack = IncludeLaunchDescription(
@@ -127,31 +153,13 @@ def generate_launch_description():
         }.items()
     )
 
-
-    rviz = Node(
-        package='rviz2',
-        executable='rviz2',
-        arguments=['-d', PathJoinSubstitution([nav2_bringup, 'rviz', 'nav2_default_view.rviz'])],
-        parameters=[{'use_sim_time': True}],
-        condition=IfCondition(LaunchConfiguration('rviz')),
-        output='screen',
-    )
-
-    return LaunchDescription([
-        gz_resource_path_worlds,
-        gz_resource_path_models,
-
-        use_sim_time_arg,
-        world_arg,
-        map_arg,
-        params_file_arg,
-        nav2_arg,
-        rviz_arg,
-        
-        gz_sim,
-        clock_bridge,
-        tb4_spawn,
-        cmd_vel_relay,
-        nav2_stack,
-        rviz
+    return LaunchDescription(
+        ENV_VARIABLES + ARGS 
+        + [
+            gz_sim,
+            clock_bridge,
+            tb4_spawn,
+            cmd_vel_relay,
+            nav2_stack,
+            rviz
     ])

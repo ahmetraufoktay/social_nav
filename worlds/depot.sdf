@@ -108,5 +108,49 @@
         </trajectory>
       </script>
     </actor>
+    <actor name="pedestrian_corridor_3">
+      <skin>
+        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/walk.dae</filename>
+        <scale>1.0</scale>
+      </skin>
+      <animation name="walk">
+        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/walk.dae</filename>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <loop>true</loop>
+        <auto_start>true</auto_start>
+        <trajectory id="0" type="walk">
+          <waypoint>
+            <time>0.0</time>
+            <pose>-5.48 0.56 1.0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>1.0</time>
+            <pose>-5.48 0.56 1.0 0 0 -0.78</pose>
+          </waypoint>
+          <waypoint>
+            <time>4.0</time>
+            <pose>-6.61 -0.52 1.0 0 0 -0.78</pose>
+          </waypoint>
+          <waypoint>
+            <time>5.0</time>
+            <pose>-6.61 -0.52 1.0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>8.0</time>
+            <pose>-7.89 0.21 1.0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>9.0</time>
+            <pose>-7.89 0.21 1.0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>12.0</time>
+            <pose>-5.48 0.56 1.0 0 0 1.57</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
   </world>
 </sdf>
