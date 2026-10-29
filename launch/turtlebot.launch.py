@@ -96,6 +96,14 @@ def generate_launch_description():
         output='screen'
     )
 
+    leg_detector = Node(
+        package='social_nav',
+        executable='leg_detector_node.py',
+        name='leg_detector_node',
+        parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+        output='screen'
+    )
+
     rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -160,6 +168,7 @@ def generate_launch_description():
             clock_bridge,
             tb4_spawn,
             cmd_vel_relay,
+            leg_detector,
             nav2_stack,
             rviz
     ])

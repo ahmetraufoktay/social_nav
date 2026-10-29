@@ -17,7 +17,14 @@ install(DIRECTORY
   models
   config
   maps
+  weights
   DESTINATION share/${PROJECT_NAME}
+)
+
+install(PROGRAMS
+  scripts/leg_detector_node.py
+  scripts/dr_spaam_model.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)

@@ -152,5 +152,59 @@
         </trajectory>
       </script>
     </actor>
+    <actor name="pedestrian_corridor_4">
+      <skin>
+        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/walk.dae</filename>
+        <scale>1.0</scale>
+      </skin>
+      <animation name="walk">
+        <filename>https://fuel.gazebosim.org/1.0/Mingfei/models/actor/tip/files/meshes/walk.dae</filename>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <loop>true</loop>
+        <auto_start>true</auto_start>
+        <trajectory id="0" type="walk">
+          <waypoint>
+            <time>0.0</time>
+            <pose>11.54 -1.10 1.0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>10.0</time>
+            <pose>-0.67 -1.10 1.0 0 0 3.14</pose>
+          </waypoint>
+        </trajectory>
+        <trajectory id="1" type="walk">
+          <waypoint>
+            <time>0.0</time>
+            <pose>-0.67 -1.10 1.0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>1.0</time>
+            <pose>-0.67 -1.10 1.0 0 0 0.0</pose>
+          </waypoint>
+        </trajectory>
+        <trajectory id="2" type="walk">
+          <waypoint>
+            <time>0.0</time>
+            <pose>-0.67 -1.10 1.0 0 0 0.0</pose>
+          </waypoint>
+          <waypoint>
+            <time>10.0</time>
+            <pose>11.54 -1.10 1.0 0 0 0.0</pose>
+          </waypoint>
+        </trajectory>
+        <trajectory id="3" type="walk">
+          <waypoint>
+            <time>0.0</time>
+            <pose>11.54 -1.10 1.0 0 0 0.0</pose>
+          </waypoint>
+          <waypoint>
+            <time>1.0</time>
+            <pose>11.54 -1.10 1.0 0 0 3.14</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
   </world>
 </sdf>
