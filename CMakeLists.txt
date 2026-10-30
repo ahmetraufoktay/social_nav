@@ -10,6 +10,21 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(ros_gz_sim REQUIRED)
 find_package(ros_gz_bridge REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+
+add_executable(proxemics_checker src/proxemics_checker.cpp)
+
+ament_target_dependencies(proxemics_checker
+  rclcpp
+  geometry_msgs
+  nav_msgs
+)
+
+install(TARGETS
+  proxemics_checker
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 install(DIRECTORY
   launch
