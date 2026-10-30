@@ -15,6 +15,12 @@
     <!--     <plugin name="gz::sim::systems::Sensors" filename="gz-sim-sensors-system">
       <render_engine>ogre2</render_engine>
     </plugin> -->
+    <plugin
+      filename="ActorPosePublisher"
+      name="custom_plugins::ActorPosePublisher">
+      <topic>/actors/poses</topic>
+      <frame_id>world</frame_id>
+    </plugin>
 
     <include>
       <uri>model://Depot</uri>

@@ -65,7 +65,13 @@ def generate_launch_description():
             name='use_sim_time',
             default_value='true',
             description='Use simulation (Gazebo) clock if true'
-        )
+        ),
+
+        DeclareLaunchArgument(
+            'namespace',
+            default_value='',
+            description='Top-level namespace'
+        ),
     ]
 
     ENV_VARIABLES = [
@@ -85,7 +91,7 @@ def generate_launch_description():
         executable='parameter_bridge',
         name='clock_bridge',
         output='screen',
-        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock']
+        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock', "/actors/poses@geometry_msgs/msg/PoseArray[gz.msgs.Pose_V"]
     )
 
     cmd_vel_relay = Node(
