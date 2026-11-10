@@ -4,6 +4,7 @@ from launch.actions import (
     DeclareLaunchArgument,
     GroupAction,
     IncludeLaunchDescription,
+    SetEnvironmentVariable
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -17,6 +18,8 @@ def generate_launch_description():
     tb4_gz = FindPackageShare('turtlebot4_gz_bringup')
     ros_gz_sim = FindPackageShare('ros_gz_sim')
     nav2_bringup = FindPackageShare('nav2_bringup')
+
+    dr_spaam_ros = FindPackageShare('dr_spaam_ros')
 
     ARGS = [
         DeclareLaunchArgument(
@@ -83,6 +86,13 @@ def generate_launch_description():
         AppendEnvironmentVariable(
             name='GZ_SIM_RESOURCE_PATH',
             value=PathJoinSubstitution([soc_nav, 'models'])
+        ),
+
+        # Forcing X11 when Wayland fails
+        SetEnvironmentVariable(
+            name="QT_QPA_PLATFORM",
+            value="xcb"
+
         )
     ]
 
@@ -105,7 +115,7 @@ def generate_launch_description():
     rviz = Node(
         package='rviz2',
         executable='rviz2',
-        arguments=['-d', PathJoinSubstitution([nav2_bringup, 'rviz', 'nav2_default_view.rviz'])],
+        arguments=['-d', PathJoinSubstitution([soc_nav, 'config', 'nav2_default.rviz'])],
         parameters=[{'use_sim_time': True}],
         condition=IfCondition(LaunchConfiguration('rviz')),
         output='screen',
@@ -152,20 +162,26 @@ def generate_launch_description():
         launch_arguments={
             'map': LaunchConfiguration('map'),
             'use_sim_time': LaunchConfiguration('use_sim_time'),
-            'slam': 'False',
+            'slam': 'True',
             'params_file': LaunchConfiguration('params_file'),
             'autostart': 'true',
             'use_composition': 'False',
         }.items()
     )
 
+    dr_spaam = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(PathJoinSubstitution([dr_spaam_ros, 'launch', 'dr_spaam_ros.launch.py']))
+    )
+
+
     return LaunchDescription(
         ENV_VARIABLES + ARGS 
         + [
-            gz_sim,
             clock_bridge,
-            tb4_spawn,
             cmd_vel_relay,
+            rviz,
+            gz_sim,
+            tb4_spawn,
             nav2_stack,
-            rviz
+            dr_spaam,
     ])
