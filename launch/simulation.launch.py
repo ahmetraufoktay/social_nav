@@ -4,14 +4,20 @@ from launch.actions import (
     DeclareLaunchArgument,
     GroupAction,
     IncludeLaunchDescription,
-    SetEnvironmentVariable
+    SetEnvironmentVariable,
+    EmitEvent,
+    RegisterEventHandler
 )
+from launch.events import matches_action
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.substitutions import FindPackageShare
-from launch_ros.actions import Node
-
+from launch_ros.actions import Node, LifecycleNode
+from launch_ros.event_handlers import OnStateTransition
+from launch_ros.events.lifecycle import ChangeState
+from lifecycle_msgs.msg import Transition
+from launch.actions import ExecuteProcess, TimerAction
 
 def generate_launch_description():
     soc_nav = FindPackageShare('social_nav')
@@ -41,21 +47,15 @@ def generate_launch_description():
         ),
 
         DeclareLaunchArgument(
+            'auto_undock',
+            default_value='true',
+            description='Açılışta robotu otomatik olarak dock\'tan çıkar'
+        ),
+
+        DeclareLaunchArgument(
             name='nav2',
             default_value='true',
             description='Whether to run Nav2'
-        ),
-
-        DeclareLaunchArgument(
-            name='slam',
-            default_value='false',
-            description='Whether to start SLAM'
-        ),
-
-        DeclareLaunchArgument(
-            name='localization',
-            default_value='false',
-            description='Whether to start Localization'
         ),
 
         DeclareLaunchArgument(
@@ -71,10 +71,23 @@ def generate_launch_description():
         ),
 
         DeclareLaunchArgument(
-            'namespace',
-            default_value='',
-            description='Top-level namespace'
+            'mode',
+            default_value='lifelong',
+            choices=['amcl', 'mapping', 'lifelong'],
+            description='Localisation mode: amcl | mapping | lifelong'
         ),
+
+        DeclareLaunchArgument(
+            'slam_params',
+            default_value=PathJoinSubstitution([soc_nav, 'config', 'slam_lifelong.yaml']),
+            description='Lifelong slam_toolbox parameter file'
+        ),
+
+        DeclareLaunchArgument(
+            'human_detection',
+            default_value='true',
+            description='Enter true if you want human detection (DR-SPAAM + RGB-D) else false'
+        )
     ]
 
     ENV_VARIABLES = [
@@ -130,7 +143,6 @@ def generate_launch_description():
         }.items()
     )
 
-
     tb4_spawn = GroupAction(
         actions=[
             IncludeLaunchDescription(
@@ -138,15 +150,15 @@ def generate_launch_description():
                     PathJoinSubstitution([tb4_gz, 'launch', 'turtlebot4_spawn.launch.py'])
                 ),
                 launch_arguments={
-                    'use_sim_time': LaunchConfiguration('use_sim_time'), # Not: use_sim_time_arg yerine use_sim_time olmalı
+                    'use_sim_time': LaunchConfiguration('use_sim_time'), 
                     'model': 'standard',
                     'x': '0.0',
                     'y': '0.0',
                     'z': '0.1',
                     'yaw': '0.0',
                     'nav2': 'false',
-                    'localization': LaunchConfiguration('localization'),
-                    'slam': LaunchConfiguration('slam'),
+                    'localization': 'false',
+                    'slam': 'false',
                     'rviz': 'false',
                 }.items()
             )
@@ -154,25 +166,115 @@ def generate_launch_description():
         scoped=True
     )
 
+    auto_undock = TimerAction(
+        period=20.0,
+        actions=[ExecuteProcess(
+            cmd=['ros2', 'action', 'send_goal', '/undock',
+                 'irobot_create_msgs/action/Undock', '{}'],
+            output='screen'
+        )],
+        condition=IfCondition(LaunchConfiguration('auto_undock'))
+    )
+
     nav2_stack = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([nav2_bringup, 'launch', 'bringup_launch.py'])
         ),
-        condition=IfCondition(LaunchConfiguration('nav2')),
+        condition=IfCondition(PythonExpression([
+            "'", LaunchConfiguration('nav2'), "'.lower() == 'true' and '",
+            LaunchConfiguration('mode'), "' != 'lifelong'"
+        ])),
         launch_arguments={
             'map': LaunchConfiguration('map'),
             'use_sim_time': LaunchConfiguration('use_sim_time'),
-            'slam': 'True',
+            'slam': PythonExpression([
+                "'True' if '", LaunchConfiguration('mode'), "' == 'mapping' else 'False'"
+            ]),
+            'params_file': LaunchConfiguration('params_file'),
+            'autostart': 'true',
+            'use_composition': 'True',
+        }.items()
+    )
+
+    lifelong_cond = IfCondition(PythonExpression([
+        "'", LaunchConfiguration('nav2'), "' == 'true' and '",
+        LaunchConfiguration('mode'), "' == 'lifelong'"
+    ]))
+
+    nav2_navigation_only = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([nav2_bringup, 'launch', 'navigation_launch.py'])
+        ),
+        launch_arguments={
+            'use_sim_time': LaunchConfiguration('use_sim_time'),
             'params_file': LaunchConfiguration('params_file'),
             'autostart': 'true',
             'use_composition': 'False',
         }.items()
     )
 
+    lifelong_slam = LifecycleNode(
+        package='slam_toolbox',
+        executable='lifelong_slam_toolbox_node',
+        name='slam_toolbox',
+        namespace='',
+        output='screen',
+        parameters=[
+            LaunchConfiguration('slam_params'),
+            {'use_sim_time': LaunchConfiguration('use_sim_time'),
+             'use_lifecycle_manager': False}
+        ]
+    )
+
+    lifelong_configure = EmitEvent(
+        event=ChangeState(
+            lifecycle_node_matcher=matches_action(lifelong_slam),
+            transition_id=Transition.TRANSITION_CONFIGURE
+        )
+    )
+
+    lifelong_activate = RegisterEventHandler(
+        OnStateTransition(
+            target_lifecycle_node=lifelong_slam,
+            start_state='configuring',
+            goal_state='inactive',
+            entities=[EmitEvent(event=ChangeState(
+                lifecycle_node_matcher=matches_action(lifelong_slam),
+                transition_id=Transition.TRANSITION_ACTIVATE
+            ))]
+        )
+    )
+
+    lifelong_group = GroupAction(
+        actions=[
+            nav2_navigation_only,
+            lifelong_slam,
+            lifelong_activate,
+            lifelong_configure,
+        ],
+        condition=lifelong_cond,
+        scoped=False,
+    )
+
+    # Human Detection
     dr_spaam = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(PathJoinSubstitution([dr_spaam_ros, 'launch', 'dr_spaam_ros.launch.py']))
     )
 
+    yolo_node = Node(
+        package='social_nav',
+        executable='yolo_node'
+    )
+
+    human_detector = Node(
+        package="social_nav",
+        executable='human_detector'
+    )
+
+    human_detection_group = GroupAction(
+        actions=[dr_spaam, yolo_node, human_detector],
+        condition=IfCondition(LaunchConfiguration('human_detection'))
+    )
 
     return LaunchDescription(
         ENV_VARIABLES + ARGS 
@@ -182,6 +284,8 @@ def generate_launch_description():
             rviz,
             gz_sim,
             tb4_spawn,
+            auto_undock,
             nav2_stack,
-            dr_spaam,
+            lifelong_group,
+            human_detection_group,
     ])
