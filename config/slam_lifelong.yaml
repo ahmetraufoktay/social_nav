@@ -1,0 +1,31 @@
+slam_toolbox:
+  ros__parameters:
+    use_sim_time: true
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan
+    mode: mapping
+    resolution: 0.05
+    max_laser_range: 12.0
+    map_update_interval: 2.0
+    transform_timeout: 0.2
+    minimum_travel_distance: 0.3
+    minimum_travel_heading: 0.3
+    do_loop_closing: true
+
+    map_file_name: /home/rauf/social_ws/src/social_nav/maps/depot
+    map_start_at_dock: true
+
+    lifelong_search_use_tree: false
+    lifelong_minimum_score: 0.1
+    lifelong_iou_match: 0.85
+    lifelong_node_removal_score: 0.04
+    lifelong_overlap_score_scale: 0.06
+    lifelong_constraint_multiplier: 0.08
+    lifelong_nearby_penalty: 0.001
+    lifelong_candidates_scale: 0.03
