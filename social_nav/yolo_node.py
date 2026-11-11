@@ -51,10 +51,10 @@ class YoloNode(Node):
 
         self.pub_detections = self.create_publisher(
             Detection2DArray,
-            '/human_detections',
+            '/yolo_detections',
             1
         )
-        self.pub_debug_image = self.create_publisher(Image, '/human_detections/image', 1)
+        self.pub_debug_image = self.create_publisher(Image, '/yolo_detections/image', 1)
 
     def image_callback(self, msg: Image):
         now = self.get_clock().now()
