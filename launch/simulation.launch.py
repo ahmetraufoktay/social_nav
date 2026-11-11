@@ -1,3 +1,6 @@
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     AppendEnvironmentVariable,
@@ -5,6 +8,7 @@ from launch.actions import (
     GroupAction,
     IncludeLaunchDescription,
     SetEnvironmentVariable,
+    SetLaunchConfiguration,
     EmitEvent,
     RegisterEventHandler
 )
@@ -18,6 +22,18 @@ from launch_ros.event_handlers import OnStateTransition
 from launch_ros.events.lifecycle import ChangeState
 from lifecycle_msgs.msg import Transition
 from launch.actions import ExecuteProcess, TimerAction
+
+
+def detection_python():
+    """Python with torch/ultralytics (the package's .venv). Falls back to system python3."""
+    path_file = os.path.join(get_package_share_directory('social_nav'), 'python_interpreter')
+    try:
+        with open(path_file) as f:
+            python = f.read().strip()
+    except OSError:
+        return 'python3'
+    return python if os.path.exists(python) else 'python3'
+
 
 def generate_launch_description():
     soc_nav = FindPackageShare('social_nav')
@@ -87,6 +103,12 @@ def generate_launch_description():
             'human_detection',
             default_value='true',
             description='Enter true if you want human detection (DR-SPAAM + RGB-D) else false'
+        ),
+
+        DeclareLaunchArgument(
+            'python',
+            default_value=detection_python(),
+            description='Python interpreter for YOLO and DR-SPAAM (defaults to the package .venv)'
         )
     ]
 
@@ -263,7 +285,8 @@ def generate_launch_description():
 
     yolo_node = Node(
         package='social_nav',
-        executable='yolo_node'
+        executable='yolo_node',
+        parameters=[{'publish_debug_image': True, 'conf_threshold': 0.4}]
     )
 
     human_detector = Node(
@@ -271,8 +294,17 @@ def generate_launch_description():
         executable='human_detector'
     )
 
+    torch_nodes = GroupAction(
+        actions=[
+            SetLaunchConfiguration('launch-prefix', LaunchConfiguration('python')),
+            dr_spaam,
+            yolo_node,
+        ],
+        scoped=True
+    )
+
     human_detection_group = GroupAction(
-        actions=[dr_spaam, yolo_node, human_detector],
+        actions=[torch_nodes, human_detector],
         condition=IfCondition(LaunchConfiguration('human_detection'))
     )
 
