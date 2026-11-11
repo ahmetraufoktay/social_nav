@@ -15,9 +15,24 @@ find_package(nav_msgs REQUIRED)
 
 find_package(sensor_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(image_geometry REQUIRED)
+
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+
+find_package(cv_bridge REQUIRED)
+
 
 add_executable(proxemics_checker src/proxemics_checker.cpp)
 add_executable(human_detector src/human_detector.cpp)
+
+target_include_directories(human_detector PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${OpenCV_INCLUDE_DIRS}
+)
 
 ament_target_dependencies(proxemics_checker
   rclcpp
@@ -30,6 +45,16 @@ ament_target_dependencies(human_detector
   sensor_msgs
   geometry_msgs
   vision_msgs
+  visualization_msgs
+  image_geometry
+  tf2
+  tf2_geometry_msgs
+  tf2_ros
+  cv_bridge
+)
+
+target_link_libraries(human_detector
+  ${OpenCV_LIBRARIES}
 )
 
 install(TARGETS
@@ -52,6 +77,10 @@ install(DIRECTORY
   maps
   weights
   DESTINATION share/${PROJECT_NAME}
+)
+
+install(DIRECTORY include/
+  DESTINATION include/
 )
 
 # The torch-based nodes (YOLO, DR-SPAAM) run with this interpreter.

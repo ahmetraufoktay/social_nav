@@ -16,6 +16,7 @@
   <depend>nav_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>vision_msgs</depend>
+  <depend>visualization_msgs</depend>
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>cv_bridge</exec_depend>
@@ -30,6 +31,10 @@
   <exec_depend>slam_toolbox</exec_depend>
   <exec_depend>topic_tools</exec_depend>
   <exec_depend>rviz2</exec_depend>
+
+  <exec_depend>tf2</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
