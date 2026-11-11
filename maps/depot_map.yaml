@@ -1,4 +1,4 @@
-image: depot_map_new.pgm
+image: depot_map.pgm
 mode: trinary
 resolution: 0.050
 origin: [-15.144, -7.705, 0]
