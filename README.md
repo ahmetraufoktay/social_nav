@@ -7,7 +7,8 @@ Social navigation experiments for a TurtleBot 4 in Gazebo. The robot drives arou
 - Ubuntu 24.04
 - ROS 2 Jazzy
 - Gazebo Harmonic
-- An NVIDIA GPU is recommended. YOLO and DR-SPAAM fall back to CPU without one, but run much slower.
+- TurtleBot 4 Simulator & Nav2
+- YOLO and DR-SPAAM
 
 `setup.sh` clones these two packages for you:
 
