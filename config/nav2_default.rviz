@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /RobotModel1/Description Topic1
         - /Map1/Update Topic1
+        - /Marker1
         - /DepthCloud1/Auto Size1
       Splitter Ratio: 0.5
     Tree Height: 594
@@ -764,7 +765,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        {}
+        dr_spaam_ros: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -827,6 +828,39 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: MarkerArray
+      Namespaces:
+        humans: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /human_detector/markers
+      Value: true
+    - Alpha: 1
+      Arrow Length: 0.30000001192092896
+      Axes Length: 0.30000001192092896
+      Axes Radius: 0.009999999776482582
+      Class: rviz_default_plugins/PoseArray
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.07000000029802322
+      Head Radius: 0.029999999329447746
+      Name: PoseArray
+      Shaft Length: 0.23000000417232513
+      Shaft Radius: 0.009999999776482582
+      Shape: Arrow (Flat)
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /human_detector/poses
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -883,11 +917,11 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 50.82402038574219
+      Scale: 73.0132064819336
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz_default_plugins)
-      X: -8.171281814575195
-      Y: -0.3884713649749756
+      X: -5.696908950805664
+      Y: -1.9171271324157715
     Saved:
       - Angle: -1.614999532699585
         Class: rviz_default_plugins/TopDownOrtho
