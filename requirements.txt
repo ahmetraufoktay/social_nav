@@ -1,0 +1,7 @@
+# Python packages for the human detection nodes (YOLO + DR-SPAAM).
+# Installed into .venv by setup.sh. ROS Jazzy's cv_bridge needs numpy 1.x.
+numpy<2
+ultralytics
+scipy
+tqdm
+gdown
