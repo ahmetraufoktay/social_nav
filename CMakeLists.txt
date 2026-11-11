@@ -50,8 +50,17 @@ install(DIRECTORY
   models
   config
   maps
+  weights
   DESTINATION share/${PROJECT_NAME}
 )
+
+# The torch-based nodes (YOLO, DR-SPAAM) run with this interpreter.
+# simulation.launch.py reads this file, so the venv never has to be activated by hand.
+set(SOCIAL_NAV_PYTHON "${CMAKE_CURRENT_SOURCE_DIR}/.venv/bin/python3"
+  CACHE FILEPATH "Python interpreter for the human detection nodes")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/python_interpreter" "${SOCIAL_NAV_PYTHON}\n")
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/python_interpreter"
+  DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
