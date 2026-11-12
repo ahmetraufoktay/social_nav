@@ -6,6 +6,7 @@ PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$(dirname "$PKG_DIR")"
 WS_DIR="$(dirname "$SRC_DIR")"
 VENV="$PKG_DIR/.venv"
+PY="$VENV/bin/python3"
 
 if [[ "${ROS_DISTRO:-}" != "jazzy" ]]; then
     echo "ROS 2 Jazzy is not sourced. Run: source /opt/ros/jazzy/setup.bash" >&2
@@ -32,11 +33,11 @@ rosdep update
 rosdep install --from-paths "$SRC_DIR" --ignore-src --rosdistro jazzy -y --skip-keys "ament_python"
 
 echo "==> Creating Python venv at $VENV"
-if [[ ! -x "$VENV/bin/python3" ]]; then
+if [[ ! -x "$PY" ]]; then
     python3 -m venv --system-site-packages "$VENV"
 fi
-"$VENV/bin/pip" install --upgrade pip
-"$VENV/bin/pip" install -r "$PKG_DIR/requirements.txt"
+"$PY" -m pip install --upgrade pip
+"$PY" -m pip install -r "$PKG_DIR/requirements.txt"
 
 DR_WEIGHTS="$SRC_DIR/2d_lidar_person_detection/dr_spaam_ros/weights"
 mkdir -p "$DR_WEIGHTS"
@@ -44,9 +45,14 @@ if compgen -G "$DR_WEIGHTS/*.pth" >/dev/null; then
     echo "==> DR-SPAAM weights already present"
 else
     echo "==> Downloading DR-SPAAM weights"
-    "$VENV/bin/gdown" https://drive.google.com/drive/folders/1OI99VfUBkmRSijgmMYYku9Pc_nS3v8sj \
+    "$PY" -m gdown https://drive.google.com/drive/folders/1OI99VfUBkmRSijgmMYYku9Pc_nS3v8sj \
         -O "$DR_WEIGHTS" --folder
     find "$DR_WEIGHTS" -mindepth 2 -type f -name "*.pth" -exec mv -t "$DR_WEIGHTS" {} + 2>/dev/null || true
+    if ! compgen -G "$DR_WEIGHTS/*.pth" >/dev/null; then
+        echo "ERROR: no .pth files found in $DR_WEIGHTS after download." >&2
+        echo "       Google Drive may be rate-limiting; wait a few minutes and re-run ./setup.sh" >&2
+        exit 1
+    fi
 fi
 
 cat <<EOF
