@@ -23,6 +23,7 @@ clone() {  # clone <dir> <url> [branch]
     fi
 }
 clone actor_pose_plugin https://github.com/ahmetraufoktay/actor_pose_plugin.git
+clone human_state_msgs https://github.com/ahmetraufoktay/human_state_msgs.git
 clone 2d_lidar_person_detection https://github.com/TeamSOBITS/2d_lidar_person_detection.git jazzy-devel
 
 echo "==> Installing ROS dependencies with rosdep"
