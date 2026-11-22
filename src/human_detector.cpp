@@ -1,3 +1,8 @@
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <vector>
+
 #include <rclcpp/rclcpp.hpp>
 
 #include <geometry_msgs/msg/pose_array.hpp>
@@ -20,9 +25,27 @@
 
 using namespace std::chrono_literals;
 
+struct Track {
+    int id;
+    double x, y;
+    double vx{0.0}, vy{0.0};
+    double yaw{0.0};
+    bool has_heading{false};
+    int misses{0};
+};
+
 class HumanDetector : public rclcpp::Node {
   public:
     HumanDetector() : Node("human_detector") {
+        fixed_frame_ =
+            this->declare_parameter<std::string>("fixed_frame", "odom");
+        track_gate_ = this->declare_parameter<double>("track_gate", 0.8);
+        alpha_ = this->declare_parameter<double>("alpha", 0.5);
+        beta_ = this->declare_parameter<double>("beta", 0.3);
+        v_min_ = this->declare_parameter<double>("v_min", 0.25);
+        yaw_lp_ = this->declare_parameter<double>("yaw_lowpass", 0.3);
+        max_misses_ = this->declare_parameter<int>("max_misses", 5);
+
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ =
             std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -30,25 +53,25 @@ class HumanDetector : public rclcpp::Node {
         intrinsics_sub_ =
             this->create_subscription<sensor_msgs::msg::CameraInfo>(
                 "/oakd/rgb/preview/camera_info", rclcpp::QoS(10),
-                [&](sensor_msgs::msg::CameraInfo::ConstSharedPtr int_msg) {
+                [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr int_msg) {
                     intrinsics_cb_(int_msg);
                 });
 
         depth_img_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
             "/oakd/rgb/preview/depth", rclcpp::QoS(10),
-            [&](sensor_msgs::msg::Image::ConstSharedPtr depth_img) {
+            [this](sensor_msgs::msg::Image::ConstSharedPtr depth_img) {
                 depth_img_cb_(depth_img);
             });
 
         yolo_sub_ =
             this->create_subscription<vision_msgs::msg::Detection2DArray>(
                 "/yolo_detections", rclcpp::QoS(10),
-                [&](vision_msgs::msg::Detection2DArray::ConstSharedPtr
-                        yolo_array) { yolo_cb_(yolo_array); });
+                [this](vision_msgs::msg::Detection2DArray::ConstSharedPtr
+                           yolo_array) { yolo_cb_(yolo_array); });
 
         spaam_sub_ = this->create_subscription<geometry_msgs::msg::PoseArray>(
             "/dr_spaam_detections", rclcpp::QoS(10),
-            [&](geometry_msgs::msg::PoseArray::ConstSharedPtr spaam_array) {
+            [this](geometry_msgs::msg::PoseArray::ConstSharedPtr spaam_array) {
                 this->spaam_cb_(spaam_array);
             });
 
@@ -60,7 +83,7 @@ class HumanDetector : public rclcpp::Node {
             this->create_publisher<visualization_msgs::msg::MarkerArray>(
                 "/human_detector/markers", rclcpp::QoS(10));
 
-        timer_ = this->create_wall_timer(100ms, [&]() { this->timer_cb(); });
+        timer_ = this->create_wall_timer(100ms, [this]() { this->timer_cb(); });
     }
 
   private:
@@ -90,6 +113,15 @@ class HumanDetector : public rclcpp::Node {
     bool yolo_received_{false};
     bool depth_received_{false};
     bool spaam_received_{false};
+
+    std::vector<Track> tracks_;
+    int next_id_{0};
+    rclcpp::Time last_track_time_{0, 0, RCL_ROS_TIME};
+    bool track_time_valid_{false};
+
+    std::string fixed_frame_;
+    double track_gate_, alpha_, beta_, v_min_, yaw_lp_;
+    int max_misses_;
 
     void intrinsics_cb_(sensor_msgs::msg::CameraInfo::ConstSharedPtr int_msg) {
         if (!camera_model_initialized_) {
@@ -128,6 +160,9 @@ class HumanDetector : public rclcpp::Node {
         }
     }
 
+    // ------------------------------------------------------------------
+    // Ana dongu
+    // ------------------------------------------------------------------
     void timer_cb() {
         if (!camera_model_initialized_) {
             RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
@@ -152,9 +187,8 @@ class HumanDetector : public rclcpp::Node {
         if (spaam_array_) {
             for (const auto &lidar_pose : spaam_array_->poses) {
                 geometry_msgs::msg::Pose base_lidar_pose;
-                if (transform_to_base_link(lidar_pose,
-                                           spaam_array_->header.frame_id,
-                                           base_lidar_pose)) {
+                if (transform_pose(lidar_pose, spaam_array_->header.frame_id,
+                                   "base_link", base_lidar_pose)) {
                     spaam_in_base.push_back(base_lidar_pose);
                 }
             }
@@ -190,8 +224,8 @@ class HumanDetector : public rclcpp::Node {
             optical_pose.orientation.w = 1;
 
             geometry_msgs::msg::Pose base_pose;
-            if (transform_to_base_link(
-                    optical_pose, depth_img_->header.frame_id, base_pose)) {
+            if (transform_pose(optical_pose, depth_img_->header.frame_id,
+                               "base_link", base_pose)) {
                 yolo_in_base.push_back(base_pose);
             }
         }
@@ -200,12 +234,8 @@ class HumanDetector : public rclcpp::Node {
                              "Transformed - YOLO: %zu, SPAAM: %zu",
                              yolo_in_base.size(), spaam_in_base.size());
 
-        // SPAAM - YOLO COORDINATE MATCHING
-        // CAmerica First!
-
-        geometry_msgs::msg::PoseArray fused_output;
-        fused_output.header.stamp = this->now();
-        fused_output.header.frame_id = "base_link";
+        // SPAAM - YOLO COORDINATE MATCHING (ayni anda, sensorler arasi)
+        std::vector<geometry_msgs::msg::Pose> fused_in_base;
 
         const double MAX_DIST = 0.5;
         size_t num_yolo = yolo_in_base.size();
@@ -245,31 +275,92 @@ class HumanDetector : public rclcpp::Node {
                 final_pose.position.y = yolo_in_base[i].position.y;
             }
             final_pose.position.z = 0.0;
-            fused_output.poses.push_back(final_pose);
+            fused_in_base.push_back(final_pose);
+        }
+
+        std::vector<geometry_msgs::msg::Pose> dets_fixed;
+        for (const auto &p : fused_in_base) {
+            geometry_msgs::msg::Pose p_fixed;
+            if (transform_pose(p, "base_link", fixed_frame_, p_fixed)) {
+                dets_fixed.push_back(p_fixed);
+            }
+        }
+
+        rclcpp::Time now = this->now();
+        double dt = 0.1;
+        if (track_time_valid_) {
+            dt = (now - last_track_time_).seconds();
+        }
+        last_track_time_ = now;
+        track_time_valid_ = true;
+
+        if (dt > 1.0) {
+            tracks_.clear();
+        }
+        dt = std::clamp(dt, 0.01, 0.5);
+
+        update_tracks(dets_fixed, dt);
+
+        geometry_msgs::msg::PoseArray fused_output;
+        fused_output.header.stamp = now;
+        fused_output.header.frame_id = "base_link";
+
+        std::vector<int> out_ids;
+        std::vector<bool> out_has_heading;
+
+        for (const auto &t : tracks_) {
+            if (t.misses > 0) {
+                continue;
+            }
+
+            geometry_msgs::msg::Pose p_fixed;
+            p_fixed.position.x = t.x;
+            p_fixed.position.y = t.y;
+            p_fixed.position.z = 0.0;
+            p_fixed.orientation.z = std::sin(t.yaw / 2.0);
+            p_fixed.orientation.w = std::cos(t.yaw / 2.0);
+
+            geometry_msgs::msg::Pose p_base;
+            if (!transform_pose(p_fixed, fixed_frame_, "base_link", p_base)) {
+                continue;
+            }
+            p_base.position.z = 0.0;
+            if (!t.has_heading) {
+                p_base.orientation = geometry_msgs::msg::Quaternion();
+                p_base.orientation.w = 1.0;
+            }
+
+            fused_output.poses.push_back(p_base);
+            out_ids.push_back(t.id);
+            out_has_heading.push_back(t.has_heading);
         }
 
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-                             "Final Fusion Count: %zu",
-                             fused_output.poses.size());
+                             "Final Fusion Count: %zu (tracks: %zu)",
+                             fused_output.poses.size(), tracks_.size());
 
         fused_poses_pub_->publish(fused_output);
 
         visualization_msgs::msg::MarkerArray marker_array;
 
-        visualization_msgs::msg::Marker clear;
-        clear.header.frame_id = "base_link";
-        clear.ns = "humans";
-        clear.id = -1;
-        clear.action = visualization_msgs::msg::Marker::DELETEALL;
-        marker_array.markers.push_back(clear);
+        for (const char *ns : {"humans", "human_heading", "human_ids"}) {
+            visualization_msgs::msg::Marker clear;
+            clear.header.frame_id = "base_link";
+            clear.ns = ns;
+            clear.id = 0;
+            clear.action = visualization_msgs::msg::Marker::DELETEALL;
+            marker_array.markers.push_back(clear);
+        }
 
-        int id = 0;
-        for (const auto &pose : fused_output.poses) {
+        for (size_t k = 0; k < fused_output.poses.size(); ++k) {
+            const auto &pose = fused_output.poses[k];
+            const int id = out_ids[k];
+
             visualization_msgs::msg::Marker cylinder;
             cylinder.header.frame_id = "base_link";
             cylinder.header.stamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
             cylinder.ns = "humans";
-            cylinder.id = id++;
+            cylinder.id = id;
             cylinder.type = visualization_msgs::msg::Marker::CYLINDER;
             cylinder.action = visualization_msgs::msg::Marker::ADD;
             cylinder.frame_locked = true;
@@ -287,16 +378,132 @@ class HumanDetector : public rclcpp::Node {
             cylinder.color.g = 1.0f;
             cylinder.color.b = 0.0f;
             cylinder.color.a = 0.8f;
-
             marker_array.markers.push_back(cylinder);
+
+            if (out_has_heading[k]) {
+                visualization_msgs::msg::Marker arrow;
+                arrow.header.frame_id = "base_link";
+                arrow.header.stamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
+                arrow.ns = "human_heading";
+                arrow.id = id;
+                arrow.type = visualization_msgs::msg::Marker::ARROW;
+                arrow.action = visualization_msgs::msg::Marker::ADD;
+                arrow.frame_locked = true;
+
+                arrow.pose.position.x = pose.position.x;
+                arrow.pose.position.y = pose.position.y;
+                arrow.pose.position.z = 1.0;
+                arrow.pose.orientation = pose.orientation;
+
+                arrow.scale.x = 0.8;
+                arrow.scale.y = 0.10;
+                arrow.scale.z = 0.10;
+
+                arrow.color.r = 0.1f;
+                arrow.color.g = 0.4f;
+                arrow.color.b = 1.0f;
+                arrow.color.a = 1.0f;
+                marker_array.markers.push_back(arrow);
+            }
+
+            visualization_msgs::msg::Marker text;
+            text.header.frame_id = "base_link";
+            text.header.stamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
+            text.ns = "human_ids";
+            text.id = id;
+            text.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+            text.action = visualization_msgs::msg::Marker::ADD;
+            text.frame_locked = true;
+            text.pose.position.x = pose.position.x;
+            text.pose.position.y = pose.position.y;
+            text.pose.position.z = 2.0;
+            text.pose.orientation.w = 1.0;
+            text.scale.z = 0.25;
+            text.color.r = text.color.g = text.color.b = 1.0f;
+            text.color.a = 1.0f;
+            text.text = "ID " + std::to_string(id);
+            marker_array.markers.push_back(text);
         }
 
         marker_pub_->publish(marker_array);
     }
 
-    bool transform_to_base_link(const geometry_msgs::msg::Pose &in_pose,
-                                const std::string &source_frame,
-                                geometry_msgs::msg::Pose &out_pose) {
+    void update_tracks(const std::vector<geometry_msgs::msg::Pose> &dets,
+                       double dt) {
+        for (auto &t : tracks_) {
+            t.x += t.vx * dt;
+            t.y += t.vy * dt;
+        }
+
+        std::vector<int> assign(tracks_.size(), -1);
+        if (!tracks_.empty() && !dets.empty()) {
+            std::vector<std::vector<double>> cost(
+                tracks_.size(), std::vector<double>(dets.size(), 0.0));
+            for (size_t i = 0; i < tracks_.size(); ++i) {
+                for (size_t j = 0; j < dets.size(); ++j) {
+                    cost[i][j] = std::hypot(tracks_[i].x - dets[j].position.x,
+                                            tracks_[i].y - dets[j].position.y);
+                }
+            }
+            assign = HungarianAlgorithm::solve(cost, track_gate_);
+        }
+
+        std::vector<bool> used(dets.size(), false);
+        for (size_t i = 0; i < tracks_.size(); ++i) {
+            auto &t = tracks_[i];
+
+            if (assign[i] < 0) {
+                t.misses++;
+                continue;
+            }
+
+            const auto &z = dets[assign[i]];
+            used[assign[i]] = true;
+
+            const double rx = z.position.x - t.x;
+            const double ry = z.position.y - t.y;
+
+            t.x += alpha_ * rx;
+            t.y += alpha_ * ry;
+            t.vx += beta_ * rx / dt;
+            t.vy += beta_ * ry / dt;
+            t.misses = 0;
+
+            const double speed = std::hypot(t.vx, t.vy);
+            if (speed > v_min_) {
+                const double target = std::atan2(t.vy, t.vx);
+                if (!t.has_heading) {
+                    t.yaw = target;
+                    t.has_heading = true;
+                } else {
+                    // aci sarmasini (+-pi) dikkate alan low-pass
+                    const double d = std::remainder(target - t.yaw, 2.0 * M_PI);
+                    t.yaw = std::remainder(t.yaw + yaw_lp_ * d, 2.0 * M_PI);
+                }
+            }
+        }
+
+        for (size_t j = 0; j < dets.size(); ++j) {
+            if (!used[j]) {
+                Track nt;
+                nt.id = next_id_++;
+                nt.x = dets[j].position.x;
+                nt.y = dets[j].position.y;
+                tracks_.push_back(nt);
+            }
+        }
+
+        tracks_.erase(std::remove_if(tracks_.begin(), tracks_.end(),
+                                     [&](const Track &t) {
+                                         return t.misses > max_misses_;
+                                     }),
+                      tracks_.end());
+    }
+
+    bool transform_pose(const geometry_msgs::msg::Pose &in_pose,
+                        const std::string &source_frame,
+                        const std::string &target_frame,
+                        geometry_msgs::msg::Pose &out_pose) {
         geometry_msgs::msg::PoseStamped pose_in, pose_out;
         pose_in.header.frame_id = source_frame;
         pose_in.header.stamp =
@@ -304,13 +511,15 @@ class HumanDetector : public rclcpp::Node {
         pose_in.pose = in_pose;
 
         try {
-            pose_out = tf_buffer_->transform(pose_in, "base_link",
+            pose_out = tf_buffer_->transform(pose_in, target_frame,
                                              tf2::durationFromSec(0.05));
             out_pose = pose_out.pose;
             return true;
         } catch (const tf2::TransformException &ex) {
             RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
-                                 "TF Error: %s", ex.what());
+                                 "TF Error (%s -> %s): %s",
+                                 source_frame.c_str(), target_frame.c_str(),
+                                 ex.what());
             return false;
         }
     }
