@@ -152,6 +152,7 @@ def generate_launch_description():
         executable='rviz2',
         arguments=['-d', PathJoinSubstitution([soc_nav, 'config', 'nav2_default.rviz'])],
         parameters=[{'use_sim_time': True}],
+        additional_env={'QT_QPA_PLATFORM': 'xcb'},
         condition=IfCondition(LaunchConfiguration('rviz')),
         output='screen',
     )
@@ -161,7 +162,7 @@ def generate_launch_description():
             PathJoinSubstitution([ros_gz_sim, 'launch', 'gz_sim.launch.py'])
         ),
         launch_arguments={
-            'gz_args': ['-r -v 4 --render-engine ogre2 ', LaunchConfiguration('world'), '.sdf']
+            'gz_args': ['-r -v 1 -s --render-engine ogre2 ', LaunchConfiguration('world'), '.sdf']
         }.items()
     )
 
@@ -286,14 +287,19 @@ def generate_launch_description():
     yolo_node = Node(
         package='social_nav',
         executable='yolo_node',
-        parameters=[{'publish_debug_image': True, 'conf_threshold': 0.4}]
+        parameters=[{'publish_debug_image': False, 'conf_threshold': 0.4}]
     )
 
     human_detector = Node(
         package="social_nav",
         executable='human_detector',
-        parameters=[{"use_sim_time": LaunchConfiguration('use_sim_time')}],
-        output="screen",
+        parameters=[{'fixed_frame': 'odom', 'v_min': 0.3,
+                    'use_sim_time': LaunchConfiguration('use_sim_time')}]
+    )
+    human_state_visualizer = Node(
+        package='social_nav',
+        executable='human_state_visualizer',
+        parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}]
     )
 
     torch_nodes = GroupAction(
@@ -306,7 +312,7 @@ def generate_launch_description():
     )
 
     human_detection_group = GroupAction(
-        actions=[torch_nodes, human_detector],
+        actions=[torch_nodes, human_detector, human_state_visualizer],
         condition=IfCondition(LaunchConfiguration('human_detection'))
     )
 
