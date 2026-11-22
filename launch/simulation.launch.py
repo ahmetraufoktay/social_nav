@@ -291,7 +291,9 @@ def generate_launch_description():
 
     human_detector = Node(
         package="social_nav",
-        executable='human_detector'
+        executable='human_detector',
+        parameters=[{"use_sim_time": LaunchConfiguration('use_sim_time')}],
+        output="screen",
     )
 
     torch_nodes = GroupAction(
