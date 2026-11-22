@@ -807,6 +807,20 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: MarkerArray
+      Namespaces:
+        human_heading: true
+        human_ids: true
+        humans: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /human_detector/markers
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -866,8 +880,8 @@ Visualization Manager:
       Scale: 73.0132064819336
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz_default_plugins)
-      X: -8.171281814575195
-      Y: -0.3884713649749756
+      X: -4.710235595703125
+      Y: -0.05359133705496788
     Saved:
       - Angle: -1.614999532699585
         Class: rviz_default_plugins/TopDownOrtho
